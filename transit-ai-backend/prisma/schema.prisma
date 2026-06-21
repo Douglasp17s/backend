@@ -1,0 +1,869 @@
+// ============================================================================
+// SISTEMA DE TRANSPORTE PÚBLICO EN TIEMPO REAL
+// Prisma Schema
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+/// Roles del sistema multi-tenant
+enum UserRole {
+  SUPERADMIN // Administrador global del sistema
+  SINDICATO_ADMIN // Administrador de un sindicato específico
+  OPERATOR // Operador/supervisor de un sindicato
+  DRIVER // Chofer de bus
+  PASSENGER // Usuario final / pasajero
+}
+
+/// Estado general (usado en varias entidades)
+enum GeneralStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+/// Estado de credencial del chofer
+enum CredentialStatus {
+  VALID // Licencia vigente
+  EXPIRED // Licencia vencida
+  SUSPENDED // Suspendida por sanción
+  RENEWING // En proceso de renovación
+}
+
+enum Turno {
+  MANANA
+  TARDE
+  NOCTURNO
+}
+
+/// Estado operativo del bus
+enum BusOperationalStatus {
+  ACTIVE // En operación
+  MAINTENANCE // En mantenimiento
+  INACTIVE // Fuera de servicio
+  OUT_OF_SERVICE // Dado de baja
+}
+
+/// Dirección de ruta
+enum RouteDirection {
+  OUTBOUND // IDA
+  INBOUND // VUELTA
+  CIRCULAR // Circular (mismo inicio y fin)
+}
+
+/// Estado del viaje
+enum TripStatus {
+  IN_PROGRESS // En curso
+  COMPLETED // Finalizado normalmente
+  CANCELLED // Cancelado
+  PAUSED // Pausado temporalmente
+}
+
+/// Razón de fin de viaje
+enum TripEndReason {
+  COMPLETED_ROUTE // Completó recorrido
+  MECHANICAL_FAILURE // Falla mecánica
+  SHIFT_END // Fin de turno
+  EMERGENCY // Emergencia
+  WEATHER // Clima
+  OTHER // Otro
+}
+
+/// Estado de asignación diaria
+enum AssignmentStatus {
+  SCHEDULED // Programada
+  IN_PROGRESS // En curso
+  COMPLETED // Finalizada
+  CANCELLED // Cancelada
+}
+
+/// Tipo de incidente
+enum IncidentType {
+  MECHANICAL_FAILURE // Falla mecánica
+  ACCIDENT // Accidente
+  PASSENGER_ISSUE // Problema con pasajero
+  ROAD_BLOCK // Bloqueo de vía
+  WEATHER // Clima
+  OTHER // Otro
+}
+
+/// Estado de incidente
+enum IncidentStatus {
+  PENDING // Pendiente de revisión
+  IN_REVIEW // En revisión
+  RESOLVED // Resuelto
+  CLOSED // Cerrado
+}
+
+/// Estado de grabación de ruta
+enum RouteRecordingStatus {
+  PENDING // Pendiente de aprobación
+  APPROVED // Aprobada (puede convertirse en ruta oficial)
+  REJECTED // Rechazada
+}
+
+/// Método de grabación de ruta
+enum RouteRecordingMethod {
+  ADMIN_DRAW // Dibujada por admin en el panel
+  DRIVER_GPS // Grabada por GPS del chofer
+  KML_IMPORT // Importada desde archivo KML/GeoJSON
+}
+
+/// Estado de transbordo interno
+enum TransferStatus {
+  SUGGESTED // Sugerido por sistema
+  ACCEPTED // Aceptado por chofer/admin
+  REJECTED // Rechazado
+  COMPLETED // Completado
+}
+
+/// Tipo de notificación
+enum NotificationType {
+  SERVICE_ALERT // Alerta de servicio
+  ROUTE_DEVIATION // Desvío de ruta
+  MAINTENANCE // Mantenimiento
+  INCIDENT // Incidente
+  PAYMENT // Relacionado a pagos
+  SYSTEM // Sistema general
+}
+
+/// Acción de auditoría
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+}
+
+// ─── BLOCKCHAIN / BILLETERA ────────────────────────────────────────────────────
+
+/// Dueño de una billetera on-chain.
+enum WalletKind {
+  USER // Billetera de un pasajero
+  SYNDICATE // Billetera de un sindicato (recibe la distribución)
+}
+
+/// Categoría del pasajero — determina el descuento aplicado on-chain.
+enum WalletCategory {
+  GENERAL
+  ESTUDIANTE
+  ADULTO_MAYOR
+}
+
+/// Tipo de movimiento registrado en la billetera (espejo del evento on-chain).
+enum WalletTxType {
+  TOPUP // Recarga de saldo
+  FARE_PAYMENT // Pago de pasaje
+  PASS_PURCHASE // Compra de abono/pase mensual
+}
+
+// ============================================================================
+// ENTIDADES PRINCIPALES
+// ============================================================================
+
+/// Sindicato — Organización propietaria de líneas de transporte.
+/// Cada sindicato gestiona sus propios choferes, buses y líneas.
+/// Es la entidad principal para el modelo multi-tenant.
+model Syndicate {
+  id                  BigInt        @id @default(autoincrement())
+  name                String        @db.VarChar(150)
+  Nit                 String?       @unique @db.VarChar(20) // NIT en Bolivia
+  legalRepresentative String        @db.VarChar(150)
+  contactPhone        String        @db.VarChar(20)
+  contactEmail        String?       @db.VarChar(100)
+  address             String        @db.Text
+  logoUrl             String?       @db.Text
+  status              GeneralStatus @default(ACTIVE)
+  active              Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relaciones
+  users       User[]
+  drivers     Driver[]
+  buses       Internal[]
+  lines       BusLine[]
+  assignments DailyAssignment[]
+  wallet      Wallet?
+  locationTests LocationTest[]
+  auditLogs   AuditLog[]
+
+  @@map("syndicates")
+}
+
+/// Usuario — Cuenta de acceso al sistema.
+/// Un usuario puede pertenecer a un sindicato (admin/operador/chofer) o no (superadmin/pasajero).
+/// Si syndicateId es NULL, es SUPERADMIN o PASSENGER.
+model User {
+  id           BigInt    @id @default(autoincrement())
+  syndicateId  BigInt? // NULL para SUPERADMIN y PASSENGER
+  email        String    @unique @db.VarChar(150)
+  passwordHash String    @db.VarChar(255)
+  name         String    @db.VarChar(150)
+  phone        String?   @db.VarChar(20)
+  avatarUrl    String?   @db.Text
+  fcmToken     String?   @db.Text // Firebase Cloud Messaging token para push notifications
+  role         UserRole  @default(PASSENGER)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime? // Soft delete
+  createdById  BigInt? // Quién creó esta cuenta
+
+  // Relaciones
+  syndicate             Syndicate?            @relation(fields: [syndicateId], references: [id])
+  creator               User?                 @relation("UserCreator", fields: [createdById], references: [id])
+  createdUsers          User[]                @relation("UserCreator")
+  driver                Driver?
+  favoriteTrips         FavoriteTrip[]
+  preferences           UserPreference?
+  notifications         NotificationReceipt[]
+  sentNotifications     Notification[]        @relation("NotificationCreator")
+  targetedNotifications Notification[]        @relation("NotificationTarget")
+  auditLogs             AuditLog[]
+  approvedRecordings    RouteRecording[]      @relation("RecordingApprover")
+  routeEdits            Route[]               @relation("RouteEditor")
+  transferDecisions     InternalTransfer[]
+  reviewedDeviations    RouteDeviation[]
+  reviewedIncidents     Incident[]            @relation("IncidentReviewer")
+  refreshTokens         RefreshToken[]
+  wallet                Wallet?
+  locationTests         LocationTest[]
+
+  @@index([syndicateId])
+  @@index([role])
+  @@map("users")
+}
+
+/// Chofer — Conductor de bus afiliado a un sindicato.
+/// Tiene una cuenta de USUARIO asociada (1:1) y pertenece a una línea específica.
+model Driver {
+  id                    BigInt           @id @default(autoincrement())
+  userId                BigInt           @unique // Relación 1:1 con User
+  syndicateId           BigInt // Pertenece a un sindicato
+  lineId                BigInt? // Línea actual asignada (puede cambiar)
+  nationalId            String           @unique @db.VarChar(20) // CI (Cédula de Identidad)
+  nationalIdExtension   String?          @db.VarChar(5) // LP, SC, CB, etc.
+  licenseNumber         String           @unique @db.VarChar(30)
+  licenseCategory       String           @db.VarChar(5) // C, D, etc.
+  licenseExpirationDate DateTime         @db.Date
+  credentialStatus      CredentialStatus @default(VALID)
+  active                Boolean          @default(true) // Suspensión temporal
+  lastLoginAt           DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  deletedAt             DateTime? // Soft delete (baja definitiva)
+
+  // Relaciones
+  user        User              @relation(fields: [userId], references: [id])
+  syndicate   Syndicate         @relation(fields: [syndicateId], references: [id])
+  line        BusLine?          @relation(fields: [lineId], references: [id])
+  assignments DailyAssignment[]
+  incidents   Incident[]
+  recordings  RouteRecording[]
+
+  @@index([syndicateId])
+  @@index([lineId])
+  @@index([credentialStatus])
+  @@map("drivers")
+}
+
+/// Línea de Micro — Línea de transporte público (ej: "Línea 1", "Micro 2B").
+/// Pertenece a un sindicato y tiene rutas (IDA/VUELTA), choferes y buses asignados.
+model BusLine {
+  id                 BigInt    @id @default(autoincrement())
+  syndicateId        BigInt // Pertenece a un sindicato
+  name               String    @db.VarChar(100)
+  code               String    @unique @db.VarChar(20) // Ej: "L1", "M2B"
+  description        String?   @db.Text
+  fare               Decimal   @db.Decimal(8, 2) // Tarifa en Bs
+  color              String    @db.Char(7) // Color hex: "#FF5733"
+  operationStartTime DateTime? @db.Time // Hora inicio operación
+  operationEndTime   DateTime? @db.Time // Hora fin operación
+  imageUrl           String?   @db.Text // Imagen representativa de la línea
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  // Relaciones
+  syndicate     Syndicate        @relation(fields: [syndicateId], references: [id])
+  routes        Route[]
+  drivers       Driver[]
+  internal      Internal[]
+  recordings    RouteRecording[]
+  stops         Stop[]
+
+  @@index([syndicateId])
+  @@map("bus_lines")
+}
+
+/// Ruta — Recorrido geoespacial oficial de una línea (ida o vuelta).
+/// Contiene los puntos del recorrido en formato GeoJSON.
+model Route {
+  id               BigInt         @id @default(autoincrement())
+  lineId           BigInt // A qué línea pertenece
+  name             String         @db.VarChar(150) // Ej: "Línea 1 Centro-UV234"
+  direction        RouteDirection
+  importedFileUrl  String?        @db.Text // URL del KML/GPX/GeoJSON original
+  importedAt       DateTime?
+  drawnPoints      Json? // Puntos dibujados manualmente por el admin (array de {lat, lng})
+  recordingType    String?        @db.VarChar(50) // Tipo: "GPS" o "DRAWN"
+  startPoint       Json? // Punto de inicio {lat, lng}
+  endPoint         Json? // Punto de finalización {lat, lng}
+  totalDistanceKm  Decimal?       @db.Decimal(8, 2)
+  estimatedTimeMin Int? // Tiempo estimado de recorrido
+  restTimeMin      Int?           @default(0) // Tiempo de descanso al final
+  version          Int            @default(1) // Versión de la ruta (historial)
+  active           Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+  lastEditorId     BigInt? // Último admin que la modificó
+
+  // Relaciones
+  line              BusLine         @relation(fields: [lineId], references: [id])
+  lastEditor        User?           @relation("RouteEditor", fields: [lastEditorId], references: [id])
+  assignments       DailyAssignment[]
+  routeRecordingId  BigInt?
+  routeRecording    RouteRecording? @relation(fields: [routeRecordingId], references: [id])
+
+  @@index([lineId])
+  @@index([active])
+  @@map("routes")
+}
+
+/// Parada — Punto de parada en una línea de transporte.
+/// Tiene un área geométrica y puntos que forman su perímetro.
+model Stop {
+  id               BigInt         @id @default(autoincrement())
+  lineId           BigInt         // Línea a la que pertenece
+  name             String         @db.VarChar(150)
+  description      String?        @db.Text
+  orderIndex       Int            // Posición en la línea (0 = primera)
+  centerLat        Decimal        @db.Decimal(10, 7)  // Centro de la parada
+  centerLng        Decimal        @db.Decimal(10, 7)
+  radiusMeters     Int            @default(100)       // Radio de la zona de parada
+  boundaryPoints   Json?          // Puntos que forman el polígono [{lat, lng}, ...]
+  surfaceType      String?        @db.VarChar(50)     // Tipo de superficie: STATION, SQUARE, STREET, PARKING, BUILDING, MARKET, OTHER
+  active           Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  // Relaciones
+  line             BusLine        @relation(fields: [lineId], references: [id])
+
+  @@index([lineId])
+  @@index([active])
+  @@map("stops")
+}
+
+/// Grabación de Ruta — Intentos de definir o actualizar una ruta.
+/// Puede ser por dibujo manual del admin o grabación GPS del chofer.
+/// Tras ser APROBADA, puede reemplazar los routePoints de la RUTA oficial.
+model RouteRecording {
+  id               BigInt               @id @default(autoincrement())
+  routeId          BigInt? // Ruta a actualizar (NULL si es ruta nueva)
+  lineId           BigInt // Línea a la que pertenece
+  driverId         BigInt? // Chofer que grabó (NULL si fue admin)
+  approvedById     BigInt? // Usuario admin que aprobó/rechazó
+  method           RouteRecordingMethod
+  direction        RouteDirection
+  recordedPoints   Json // GeoJSON con todos los puntos grabados
+  simplifiedPoints Json? // Puntos reducidos (Douglas-Peucker)
+  pointCount       Int // Cantidad total de puntos
+  durationMinutes  Int? // Duración de la grabación
+  distanceKm       Decimal?             @db.Decimal(8, 2)
+  status           RouteRecordingStatus @default(PENDING)
+  reviewNotes      String?              @db.Text
+  approvedAt       DateTime?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime             @default(now())
+
+  // Relaciones
+  line       BusLine @relation(fields: [lineId], references: [id])
+  driver     Driver? @relation(fields: [driverId], references: [id])
+  approvedBy User?   @relation("RecordingApprover", fields: [approvedById], references: [id])
+  routes     Route[]
+
+  @@index([routeId])
+  @@index([lineId])
+  @@index([status])
+  @@map("route_recordings")
+}
+
+/// Bus / Interno — Unidad física de transporte (vehículo).
+/// Pertenece a un sindicato y opera en una línea.
+model Internal {
+  id                BigInt               @id @default(autoincrement())
+  syndicateId       BigInt // Pertenece a un sindicato
+  lineId            BigInt? // Línea actual asignada
+  internalNumber    String               @db.VarChar(10) // Número visible: "101", "2B-45"
+  licensePlate      String               @unique @db.VarChar(15)
+  model             String               @db.VarChar(80)
+  manufactureYear   Int?                 @db.SmallInt
+  capacity          Int                  @db.SmallInt // Capacidad total de pasajeros
+  gpsDeviceId       String?              @db.VarChar(50) // Opcional: IMEI del GPS dedicado
+  operationalStatus BusOperationalStatus @default(ACTIVE)
+  active            Boolean              @default(true) // Suspensión temporal
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  deletedAt         DateTime? // Soft delete (baja definitiva)
+
+  // Relaciones
+  syndicate      Syndicate         @relation(fields: [syndicateId], references: [id])
+  line           BusLine?          @relation(fields: [lineId], references: [id])
+  assignments    DailyAssignment[]
+  locationTests  LocationTest[]
+
+  @@index([syndicateId])
+  @@index([lineId])
+  @@index([operationalStatus])
+  @@map("buses")
+}
+
+/// Turno — Plantilla de horario reutilizable.
+/// Define días y horas en que opera un grupo de buses.
+model Shift {
+  id             BigInt    @id @default(autoincrement())
+  name           Turno // Ej: "Mañana", "Tarde", "Nocturno"
+  daysOfWeek     String    @db.VarChar(20) // Ej: "1,2,3,4,5" (lun-vie)
+  startTime      DateTime  @db.Time
+  endTime        DateTime  @db.Time
+  expectedRounds Int? // Número de vueltas esperadas en el turno
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  // Relaciones
+  assignments DailyAssignment[]
+
+  @@map("shifts")
+}
+
+/// Asignación Diaria — Vincula chofer + bus + ruta + turno para una fecha específica.
+/// Es la base operativa: cada día se crean estas asignaciones para los buses en circulación.
+model DailyAssignment {
+  id           BigInt           @id @default(autoincrement())
+  syndicateId  BigInt // Para queries rápidas multi-tenant
+  driverId     BigInt
+  busId        BigInt
+  routeId      BigInt
+  shiftId      BigInt?
+  date         DateTime         @db.Date // Fecha de la asignación
+  startTime    DateTime         @db.Time
+  endTime      DateTime         @db.Time
+  actualRounds Int? // Vueltas reales realizadas (vs expectedRounds)
+  status       AssignmentStatus @default(SCHEDULED)
+  notes        String?          @db.Text
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  // Relaciones
+  syndicate Syndicate @relation(fields: [syndicateId], references: [id])
+  driver    Driver    @relation(fields: [driverId], references: [id])
+  route     Route     @relation(fields: [routeId], references: [id])
+  shift     Shift?    @relation(fields: [shiftId], references: [id])
+  internal  Internal  @relation(fields: [busId], references: [id])
+  trips     Trip[]
+
+  @@index([date])
+  @@index([syndicateId, date])
+  @@index([driverId, date])
+  @@map("daily_assignments")
+}
+
+/// Viaje — Sesión de recorrido de un bus (una vuelta de inicio a fin).
+/// Vinculado a una ASIGNACION_DIARIA (fuente de verdad de chofer/bus/ruta).
+model Trip {
+  id           BigInt         @id @default(autoincrement())
+  assignmentId BigInt // Asignación de la que proviene
+  driverId     BigInt // Denormalizado para queries rápidas
+  busId        BigInt // Denormalizado para queries rápidas
+  routeId      BigInt // Denormalizado para queries rápidas
+  status       TripStatus     @default(IN_PROGRESS)
+  endReason    TripEndReason?
+  averageSpeed Decimal?       @db.Decimal(5, 2) // km/h promedio del viaje
+  startedAt    DateTime       @default(now())
+  finishedAt   DateTime?
+
+  // Relaciones
+  assignment DailyAssignment @relation(fields: [assignmentId], references: [id])
+
+  locations            DriverLocation[]
+  incidents            Incident[]
+  deviations           RouteDeviation[]
+  originTransfers      InternalTransfer[] @relation("OriginTrip")
+  destinationTransfers InternalTransfer[] @relation("DestinationTrip")
+
+  @@index([assignmentId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("trips")
+}
+
+/// Ubicación del Chofer — Punto GPS del bus durante un viaje.
+/// Tabla de alta frecuencia (cada 3-5 segundos). Debe particionarse por fecha.
+model DriverLocation {
+  id             BigInt   @id @default(autoincrement())
+  tripId         BigInt // A qué viaje pertenece este punto
+  latitude       Decimal  @db.Decimal(10, 8)
+  longitude      Decimal  @db.Decimal(11, 8)
+  heading        Decimal? @db.Decimal(5, 2) // Rumbo en grados (0-360)
+  speed          Decimal? @db.Decimal(5, 2) // Velocidad en km/h
+  accuracyMeters Decimal? @db.Decimal(5, 2) // Precisión GPS en metros
+  batteryLevel   Int?     @db.SmallInt // Nivel batería del dispositivo (0-100)
+  recordedAt     DateTime @default(now())
+
+  // Relaciones
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId])
+  @@index([recordedAt])
+  @@map("driver_locations")
+}
+
+// ============================================================================
+// INCIDENTES, DESVÍOS Y TRANSBORDOS
+// ============================================================================
+
+/// Incidente — Reporte de problema durante un viaje.
+/// Solo los choferes pueden reportarlos (no pasajeros, para evitar reportes falsos).
+model Incident {
+  id                  BigInt         @id @default(autoincrement())
+  tripId              BigInt // Viaje en el que ocurrió
+  driverId            BigInt // Chofer que reportó
+  reviewedById        BigInt? // Admin que revisó
+  type                IncidentType
+  status              IncidentStatus @default(PENDING)
+  description         String         @db.Text
+  latitude            Decimal?       @db.Decimal(10, 8)
+  longitude           Decimal?       @db.Decimal(11, 8)
+  requestStopTracking Boolean        @default(false) // Chofer pide pausar GPS
+  trackingStopped     Boolean        @default(false)
+  reviewNotes         String?        @db.Text
+  reportedAt          DateTime       @default(now())
+  reviewedAt          DateTime?
+  resolvedAt          DateTime?
+
+  // Relaciones
+  trip       Trip   @relation(fields: [tripId], references: [id])
+  driver     Driver @relation(fields: [driverId], references: [id])
+  reviewedBy User?  @relation("IncidentReviewer", fields: [reviewedById], references: [id])
+
+  @@index([tripId])
+  @@index([status])
+  @@index([type])
+  @@map("incidents")
+}
+
+/// Desvío de Ruta — Detectado automáticamente cuando el bus se aleja de su ruta.
+/// El sistema compara UbicacionChofer con Route.routePoints usando PostGIS.
+model RouteDeviation {
+  id             BigInt    @id @default(autoincrement())
+  tripId         BigInt // Viaje donde se detectó
+  latitude       Decimal   @db.Decimal(10, 8)
+  longitude      Decimal   @db.Decimal(11, 8)
+  distanceMeters Decimal   @db.Decimal(8, 2) // Metros fuera de ruta
+  justified      Boolean   @default(false) // ¿Admin lo justificó?
+  justification  String?   @db.Text
+  reviewedById   BigInt?
+  detectedAt     DateTime  @default(now())
+  reviewedAt     DateTime?
+
+  // Relaciones
+  trip       Trip  @relation(fields: [tripId], references: [id])
+  reviewedBy User? @relation(fields: [reviewedById], references: [id])
+
+  @@index([tripId])
+  @@index([detectedAt])
+  @@map("route_deviations")
+}
+
+/// Transbordo Interno — Pasajero cambia de bus a otro de la misma línea.
+/// Se sugiere automáticamente y debe ser aceptado/decidido por un usuario.
+model InternalTransfer {
+  id                BigInt         @id @default(autoincrement())
+  originTripId      BigInt // Viaje de origen
+  destinationTripId BigInt // Viaje de destino
+  decidedById       BigInt? // Usuario que decidió
+  latitude          Decimal        @db.Decimal(10, 8)
+  longitude         Decimal        @db.Decimal(11, 8)
+  status            TransferStatus @default(SUGGESTED)
+  reason            String?        @db.Text
+  suggestedAt       DateTime       @default(now())
+  decidedAt         DateTime?
+  completedAt       DateTime?
+
+  // Relaciones
+  originTrip      Trip  @relation("OriginTrip", fields: [originTripId], references: [id])
+  destinationTrip Trip  @relation("DestinationTrip", fields: [destinationTripId], references: [id])
+  decidedBy       User? @relation(fields: [decidedById], references: [id])
+
+  @@index([status])
+  @@map("internal_transfers")
+}
+
+// ============================================================================
+// SISTEMA DE NOTIFICACIONES
+// ============================================================================
+
+/// Notificación — Mensaje del sistema (puede ser broadcast o específico).
+/// Si targetUserId es NULL y targetRole tiene valor → broadcast a todos los de ese rol.
+model Notification {
+  id           BigInt           @id @default(autoincrement())
+  title        String           @db.VarChar(200)
+  body         String           @db.Text
+  type         NotificationType
+  data         Json? // Payload extra (ej: {"lineId": 1, "action": "open_map"})
+  targetRole   UserRole? // Si es broadcast a un rol
+  targetUserId BigInt? // Si es para un usuario específico
+  createdById  BigInt? // Quién la creó (admin)
+  createdAt    DateTime         @default(now())
+  expiresAt    DateTime? // Cuándo deja de ser relevante
+
+  // Relaciones
+  targetUser User?                 @relation("NotificationTarget", fields: [targetUserId], references: [id])
+  creator    User?                 @relation("NotificationCreator", fields: [createdById], references: [id])
+  receipts   NotificationReceipt[]
+
+  @@index([targetUserId])
+  @@index([targetRole])
+  @@index([type])
+  @@map("notifications")
+}
+
+/// Recepción de Notificación — Registro por cada usuario que recibe una notificación.
+/// Permite saber quién la leyó, cuándo se envió push, etc.
+model NotificationReceipt {
+  id             BigInt    @id @default(autoincrement())
+  notificationId BigInt
+  userId         BigInt
+  pushToken      String?   @db.VarChar(255) // Token FCM/APNS al momento del envío
+  pushSent       Boolean   @default(false)
+  sentAt         DateTime  @default(now())
+  readAt         DateTime?
+
+  // Relaciones
+  notification Notification @relation(fields: [notificationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([userId])
+  @@map("notification_receipts")
+}
+
+// ============================================================================
+// PREFERENCIAS Y FAVORITOS DEL USUARIO
+// ============================================================================
+
+/// Preferencias del Usuario — Configuración personalizada para el planificador.
+/// Define cómo se calculan las recomendaciones (caminata máx, transbordos máx, etc.)
+model UserPreference {
+  id                BigInt   @id @default(autoincrement())
+  userId            BigInt   @unique // Relación 1:1 con usuario
+  preferredCriteria String?  @db.VarChar(50) // "FASTEST", "LEAST_WALKING", "FEWEST_TRANSFERS"
+  maxWalkingMeters  Int      @default(500)
+  maxTransfers      Int      @default(2)
+  learnedPatterns   Json? // Patrones de uso aprendidos por IA
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_preferences")
+}
+
+/// Viajes Favoritos — Rutas guardadas frecuentes (ej: "Casa → Trabajo")
+model FavoriteTrip {
+  id                   BigInt    @id @default(autoincrement())
+  userId               BigInt
+  alias                String    @db.VarChar(100)
+  originLatitude       Decimal   @db.Decimal(10, 8)
+  originLongitude      Decimal   @db.Decimal(11, 8)
+  originLabel          String    @db.VarChar(150) // "Mi Casa", "Oficina"
+  destinationLatitude  Decimal   @db.Decimal(10, 8)
+  destinationLongitude Decimal   @db.Decimal(11, 8)
+  destinationLabel     String    @db.VarChar(150)
+  lastResult           Json? // Cache del último cálculo exitoso
+  lastCalculatedAt     DateTime?
+  active               Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("favorite_trips")
+}
+
+// ============================================================================
+// AUTENTICACIÓN — REFRESH TOKENS
+// ============================================================================
+
+/// Token de refresco para rotación segura de sesiones JWT.
+model RefreshToken {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt
+  token     String    @unique @db.Text
+  expiresAt DateTime
+  revokedAt DateTime?
+  ip        String?   @db.VarChar(45)
+  userAgent String?   @db.Text
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// BLOCKCHAIN — BILLETERAS, TRANSACCIONES Y ABONOS
+// ============================================================================
+
+/// Billetera digital — Vincula una cuenta (usuario o sindicato) con una
+/// dirección on-chain. Modelo custodial: el backend guarda la llave privada
+/// cifrada. El saldo real vive en el contrato; aquí solo se espeja la metadata.
+model Wallet {
+  id           BigInt         @id @default(autoincrement())
+  kind         WalletKind     @default(USER)
+  userId       BigInt?        @unique // Si es billetera de un pasajero
+  syndicateId  BigInt?        @unique // Si es billetera de un sindicato
+  address      String         @unique @db.VarChar(42) // Dirección 0x...
+  encryptedKey String         @db.Text // Llave privada cifrada (AES-256-GCM)
+  category     WalletCategory @default(GENERAL) // Espejo de la categoría on-chain
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relaciones
+  user         User?               @relation(fields: [userId], references: [id])
+  syndicate    Syndicate?          @relation(fields: [syndicateId], references: [id])
+  transactions WalletTransaction[]
+  passes       TransitPass[]
+
+  @@index([address])
+  @@map("wallets")
+}
+
+/// Transacción de billetera — Espejo en BD de un evento on-chain.
+/// La fuente de verdad es la blockchain (txHash); esto acelera el historial.
+model WalletTransaction {
+  id            BigInt       @id @default(autoincrement())
+  walletId      BigInt // Billetera del titular del movimiento
+  type          WalletTxType
+  amountCents   Int // Monto del movimiento en centavos de Bs
+  baseFareCents Int? // Tarifa base antes del descuento (en pagos de pasaje)
+  discountBps   Int? // Descuento aplicado en puntos base (5000 = 50%)
+  counterparty  String?      @db.VarChar(42) // Dirección destino (sindicato, etc.)
+  lineId        BigInt? // Línea asociada (si aplica)
+  txHash        String       @db.VarChar(66) // Hash de la transacción on-chain
+  blockNumber   Int? // Número de bloque
+  metadata      Json? // Detalle del reparto u otros datos
+  createdAt     DateTime     @default(now())
+
+  // Relaciones
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
+  @@index([type])
+  @@index([txHash])
+  @@map("wallet_transactions")
+}
+
+/// Abono / Pase mensual — Registro de un pase pagado on-chain (sin NFT).
+/// Otorga viajes durante un período de validez.
+model TransitPass {
+  id          BigInt   @id @default(autoincrement())
+  walletId    BigInt // Billetera del pasajero
+  lineId      BigInt? // Línea cubierta (NULL = todas)
+  priceCents  Int // Precio pagado en centavos de Bs
+  validFrom   DateTime @default(now())
+  validUntil  DateTime // Vencimiento del abono
+  txHash      String   @db.VarChar(66)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
+  @@index([validUntil])
+  @@map("transit_passes")
+}
+
+// ============================================================================
+// AUDITORÍA
+// ============================================================================
+
+/// Registro de Auditoría — Trazabilidad de cambios en el sistema.
+/// Permite saber quién modificó qué, cuándo y desde dónde.
+model AuditLog {
+  id           BigInt      @id @default(autoincrement())
+  userId       BigInt? // Usuario que realizó la acción
+  userRole     UserRole? // Rol del usuario (desnormalizado)
+  sindicatoId  BigInt? // Sindicato del usuario (desnormalizado para filtros)
+  action       AuditAction
+  tableName    String      @db.VarChar(100)
+  recordId     BigInt // ID del registro afectado
+  recordName   String?     @db.VarChar(255) // Nombre descriptivo del registro
+  previousData Json? // Datos antes del cambio
+  newData      Json? // Datos después del cambio
+  ipAddress    String?     @db.VarChar(45) // IPv4 o IPv6
+  userAgent    String?     @db.Text
+  createdAt    DateTime    @default(now())
+
+  // Relaciones
+  user User? @relation(fields: [userId], references: [id])
+  syndicate Syndicate? @relation(fields: [sindicatoId], references: [id])
+
+  @@index([userId])
+  @@index([sindicatoId])
+  @@index([tableName])
+  @@index([recordId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// Ubicación en tiempo real de prueba — Para simular múltiples micros con ubicación ficticia
+model LocationTest {
+  id           BigInt      @id @default(autoincrement())
+  internalId   BigInt // ID del micro
+  syndicateId  BigInt // ID del sindicato propietario
+  driverId     BigInt? // ID del conductor asignado para prueba
+  latitude     Decimal     @db.Decimal(10, 7)
+  longitude    Decimal     @db.Decimal(10, 7)
+  speedKmh     Int         @default(0) // Velocidad en km/h
+  heading      Int?        // Dirección en grados (0-360)
+  accuracy     Int?        // Precisión en metros
+  timestamp    DateTime    @default(now())
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relaciones
+  internal Internal @relation(fields: [internalId], references: [id])
+  syndicate Syndicate @relation(fields: [syndicateId], references: [id])
+  driver User? @relation(fields: [driverId], references: [id])
+
+  @@index([internalId])
+  @@index([syndicateId])
+  @@index([driverId])
+  @@index([timestamp])
+  @@map("location_tests")
+}

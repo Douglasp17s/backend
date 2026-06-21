@@ -1,0 +1,63 @@
+name: transit_ai
+description: Transit AI - Passenger Mobile Application
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management & Routing
+  get: ^4.6.5
+
+  # HTTP & Networking
+  dio: ^5.3.1
+
+  # Maps & Location
+  google_maps_flutter: ^2.5.3
+  geolocator: ^9.0.2
+  location: ^5.0.1
+
+  # QR Scanner
+  qr_code_scanner: ^0.7.0
+
+  # Payment
+  flutter_stripe: ^8.0.0
+
+  # Firebase & Push Notifications
+  firebase_core: ^2.24.0
+  firebase_messaging: ^14.7.0
+  flutter_local_notifications: ^16.1.0
+
+  # Utils
+  intl: ^0.19.0
+  logger: ^2.0.1
+  connectivity_plus: ^5.0.1
+  uuid: ^4.0.0
+  shared_preferences: ^2.2.0
+  workmanager: ^0.5.2
+
+  # UI/UX
+  flutter_spinkit: ^5.2.0
+  smooth_page_indicator: ^1.1.0
+  cached_network_image: ^3.3.0
+  shimmer: ^3.0.0
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - .env

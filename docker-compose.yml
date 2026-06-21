@@ -1,0 +1,120 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: transit-ai-db
+    environment:
+      POSTGRES_USER: transit_user
+      POSTGRES_PASSWORD: transit_password
+      POSTGRES_DB: transit_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transit_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - transit-network
+
+  # Redis (para caché y sesiones)
+  redis:
+    image: redis:7-alpine
+    container_name: transit-ai-cache
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - transit-network
+
+  # Backend NestJS
+  backend:
+    build:
+      context: ./transit-ai-backend
+      dockerfile: Dockerfile
+    container_name: transit-ai-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://transit_user:transit_password@postgres:5432/transit_ai
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRATION: 15m
+      REFRESH_TOKEN_EXPIRATION: 7d
+      REDIS_URL: redis://redis:6379
+      PORT: 4000
+      # Stripe (opcional)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      # Hardhat (opcional)
+      HARDHAT_RPC: http://hardhat:8545
+      HARDHAT_CHAIN_ID: 31337
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    networks:
+      - transit-network
+    volumes:
+      - ./transit-ai-backend/dist:/app/dist:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Frontend Next.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: transit-ai-frontend
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:4000
+      NEXT_PUBLIC_MAPS_API_KEY: ${NEXT_PUBLIC_MAPS_API_KEY:-}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - transit-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Hardhat (Blockchain - opcional)
+  hardhat:
+    image: node:20-alpine
+    container_name: transit-ai-hardhat
+    working_dir: /app
+    command: sh -c "npm install && npm run hardhat node"
+    volumes:
+      - ./transit-ai-backend:/app
+    ports:
+      - "8545:8545"
+    networks:
+      - transit-network
+    profiles:
+      - blockchain
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  transit-network:
+    driver: bridge
