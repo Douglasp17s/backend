@@ -72,3 +72,11 @@ Thumbs.db
 # Misc
 .turbo/
 .cache/
+
+# Secrets & Credentials
+*firebase-service-account.json
+*-service-account.json
+*.key
+*.pem
+credentials.json
+secrets.json
