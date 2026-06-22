@@ -12,7 +12,10 @@ export class AsignacionesController {
 
   @Get('mi-asignacion-hoy')
   async obtenerMiAsignacionHoy(@CurrentUser() usuario: any) {
-    return await this.asignacionesService.obtenerMiAsignacionHoy(usuario?.id);
+    if (!usuario?.id) {
+      return null;
+    }
+    return await this.asignacionesService.obtenerMiAsignacionHoy(usuario.id);
   }
 
   @Get()

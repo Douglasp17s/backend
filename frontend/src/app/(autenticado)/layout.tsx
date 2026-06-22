@@ -11,26 +11,56 @@ import {
 import { useUsuarioAlmacen } from '../../almacen/usuario.almacen';
 import { authServicio } from '../../services/auth.servicio';
 
-const menu = [
-  { href:'/panel',         icono:<LayoutDashboard size={16}/>, label:'Panel' },
-  { href:'/lineas',        icono:<List size={16}/>,            label:'Líneas' },
-  { href:'/buses',         icono:<Bus size={16}/>,             label:'Buses' },
-  { href:'/conductores',   icono:<UserCheck size={16}/>,       label:'Conductores' },
-  { href:'/asignaciones',  icono:<Calendar size={16}/>,        label:'Asignaciones' },
-  { href:'/rutas',         icono:<Route size={16}/>,           label:'Rutas' },
-  { href:'/grabaciones',   icono:<FileCheck size={16}/>,       label:'Rutas Grabadas' },
-  { href:'/paradas',       icono:<MapPin size={16}/>,          label:'Paradas' },
-  { href:'/turnos',        icono:<Clock size={16}/>,           label:'Turnos' },
-  { href:'/transbordo',    icono:<Navigation size={16}/>,      label:'Transbordo' },
-  { href:'/sindicatos',    icono:<Building2 size={16}/>,       label:'Sindicatos' },
-  { href:'/usuarios',      icono:<Users size={16}/>,           label:'Usuarios' },
-  { href:'/billetera',     icono:<Wallet size={16}/>,          label:'Billetera' },
-  { href:'/incidentes',    icono:<AlertTriangle size={16}/>,   label:'Incidentes' },
-  { href:'/desvios',       icono:<GitBranch size={16}/>,       label:'Desvíos' },
-  { href:'/notificaciones',icono:<Bell size={16}/>,            label:'Notificaciones' },
-  { href:'/reportes',         icono:<BarChart3 size={16}/>,       label:'Reportes' },
-  { href:'/auditoria',        icono:<Activity size={16}/>,        label:'Auditoría' },
-  { href:'/simulador-rutas',  icono:<Zap size={16}/>,             label:'Simulador de Rutas' },
+const menuCategorias = [
+  {
+    categoria: 'Principal',
+    items: [
+      { href: '/panel', icono: <LayoutDashboard size={16} />, label: 'Panel', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+    ],
+  },
+  {
+    categoria: 'Transporte',
+    items: [
+      { href: '/lineas', icono: <List size={16} />, label: 'Líneas', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/buses', icono: <Bus size={16} />, label: 'Buses', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/conductores', icono: <UserCheck size={16} />, label: 'Conductores', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/rutas', icono: <Route size={16} />, label: 'Rutas', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/paradas', icono: <MapPin size={16} />, label: 'Paradas', rol: ['SUPERADMIN'] },
+    ],
+  },
+  {
+    categoria: 'Operaciones',
+    items: [
+      { href: '/asignaciones', icono: <Calendar size={16} />, label: 'Asignaciones', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/turnos', icono: <Clock size={16} />, label: 'Turnos', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/grabaciones', icono: <FileCheck size={16} />, label: 'Rutas Grabadas', rol: ['SUPERADMIN'] },
+      { href: '/transbordo', icono: <Navigation size={16} />, label: 'Transbordo', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+    ],
+  },
+  {
+    categoria: 'Finanzas',
+    items: [
+      { href: '/billetera', icono: <Wallet size={16} />, label: 'Billetera', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/reportes', icono: <BarChart3 size={16} />, label: 'Reportes', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+    ],
+  },
+  {
+    categoria: 'Gestión',
+    items: [
+      { href: '/sindicatos', icono: <Building2 size={16} />, label: 'Sindicatos', rol: ['SUPERADMIN'] },
+      { href: '/usuarios', icono: <Users size={16} />, label: 'Usuarios', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/incidentes', icono: <AlertTriangle size={16} />, label: 'Incidentes', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/desvios', icono: <GitBranch size={16} />, label: 'Desvíos', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+    ],
+  },
+  {
+    categoria: 'Sistema',
+    items: [
+      { href: '/notificaciones', icono: <Bell size={16} />, label: 'Notificaciones', rol: ['SUPERADMIN', 'SINDICATO_ADMIN'] },
+      { href: '/auditoria', icono: <Activity size={16} />, label: 'Auditoría', rol: ['SUPERADMIN'] },
+      { href: '/simulador-rutas', icono: <Zap size={16} />, label: 'Simulador', rol: ['SUPERADMIN'] },
+    ],
+  },
 ];
 
 export default function LayoutAutenticado({ children }: { children: React.ReactNode }) {
@@ -69,13 +99,44 @@ export default function LayoutAutenticado({ children }: { children: React.ReactN
           <span style={{ fontWeight:800, fontSize:'0.9rem', color:'#f2f2f2' }}>Transit<span style={{ color:'#00d992' }}>AI</span></span>
         </div>
 
-        <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:'0.125rem', padding:'0 0.625rem', overflowY:'auto' }}>
-          {menu.map((item) => {
-            const activo = pathname === item.href;
+        <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:'0.5rem', padding:'0 0.625rem', overflowY:'auto' }}>
+          {menuCategorias.map((categoria) => {
+            const itemsVisibles = categoria.items.filter((item) =>
+              item.rol.includes(usuario?.rol as string)
+            );
+            if (itemsVisibles.length === 0) return null;
+
             return (
-              <Link key={item.href} href={item.href} style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5625rem 0.75rem', borderRadius:8, fontSize:'0.8125rem', fontWeight: activo ? 600 : 400, color: activo ? '#00d992' : '#8b949e', background: activo ? 'rgba(0,217,146,0.08)' : 'transparent', border: activo ? '1px solid rgba(0,217,146,0.15)' : '1px solid transparent', textDecoration:'none', transition:'all 0.15s' }}>
-                {item.icono} {item.label}
-              </Link>
+              <div key={categoria.categoria} style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
+                <p style={{ fontSize:'0.7rem', fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.5px', padding:'0.75rem 0.75rem 0.5rem', margin:0 }}>
+                  {categoria.categoria}
+                </p>
+                {itemsVisibles.map((item) => {
+                  const activo = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      style={{
+                        display:'flex',
+                        alignItems:'center',
+                        gap:'0.5rem',
+                        padding:'0.5625rem 0.75rem',
+                        borderRadius:8,
+                        fontSize:'0.8125rem',
+                        fontWeight: activo ? 600 : 400,
+                        color: activo ? '#00d992' : '#8b949e',
+                        background: activo ? 'rgba(0,217,146,0.08)' : 'transparent',
+                        border: activo ? '1px solid rgba(0,217,146,0.15)' : '1px solid transparent',
+                        textDecoration:'none',
+                        transition:'all 0.15s',
+                      }}
+                    >
+                      {item.icono} {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>

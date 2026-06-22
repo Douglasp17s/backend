@@ -118,6 +118,13 @@ export class BilleteraController {
 
   // ─── Configuración del sistema (solo administradores) ───────────────────────
 
+  /** Obtiene todos los pasajeros con sus saldos actuales. */
+  @Get('usuarios-con-saldo')
+  async obtenerUsuariosConSaldo(@CurrentUser() usuario: any) {
+    this.soloAdmin(usuario);
+    return this.billeteraService.obtenerUsuariosConSaldo();
+  }
+
   /** Configuración vigente: descuentos, reparto y parámetros del abono. */
   @Get('config')
   async obtenerConfig() {

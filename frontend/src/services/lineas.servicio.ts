@@ -97,6 +97,7 @@ class LineasServicio extends ClienteApi {
       ...d,
       nombre: d.name || d.nombre,
       numero: d.code || d.numero,
+      tarifaBaseBs: typeof d.fare === 'string' ? parseFloat(d.fare) : d.fare || d.tarifaBaseBs || 0,
     };
   }
 

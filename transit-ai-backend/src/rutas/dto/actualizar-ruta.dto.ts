@@ -63,6 +63,7 @@ export class ActualizarRutaDto {
   @IsOptional()
   recordingType?: string; // 'GPS' o 'DRAWN'
 
+  @Type(() => Boolean)
   @IsBoolean()
   @IsOptional()
   activo?: boolean;

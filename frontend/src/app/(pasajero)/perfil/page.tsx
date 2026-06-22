@@ -41,8 +41,8 @@ export default function PaginaPerfil() {
   const [guardandoPref, setGuardandoPref] = useState(false);
   const [prefGuardada, setPrefGuardada] = useState(false);
   const [criterioPref, setCriterioPref] = useState<string>('FASTEST');
-  const [maxCaminata, setMaxCaminata] = useState<number>(500);
-  const [maxTransbordos, setMaxTransbordos] = useState<number>(2);
+  const [maxCaminata, setMaxCaminata] = useState<number | null>(null);
+  const [maxTransbordos, setMaxTransbordos] = useState<number | null>(null);
 
   // ── Cargar favoritos al cambiar al tab
   useEffect(() => {
@@ -243,11 +243,11 @@ export default function PaginaPerfil() {
                 <div style={{ marginBottom: '1.25rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                     <label style={{ fontSize: '0.8125rem', color: '#8b949e', fontWeight: 600 }}>Máx. distancia a caminar</label>
-                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#f2f2f2' }}>{maxCaminata} m</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#f2f2f2' }}>{maxCaminata ?? 500} m</span>
                   </div>
                   <input
                     type="range" min={100} max={1500} step={50}
-                    value={maxCaminata} onChange={(e) => setMaxCaminata(Number(e.target.value))}
+                    value={maxCaminata ?? 500} onChange={(e) => setMaxCaminata(Number(e.target.value))}
                     style={{ width: '100%', accentColor: '#00d992' }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: '#555', marginTop: '0.25rem' }}>
@@ -258,7 +258,7 @@ export default function PaginaPerfil() {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                     <label style={{ fontSize: '0.8125rem', color: '#8b949e', fontWeight: 600 }}>Máx. transbordos permitidos</label>
-                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#f2f2f2' }}>{maxTransbordos}</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#f2f2f2' }}>{maxTransbordos ?? 2}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     {[0, 1, 2, 3].map((n) => (
@@ -267,9 +267,9 @@ export default function PaginaPerfil() {
                         onClick={() => setMaxTransbordos(n)}
                         style={{
                           flex: 1, padding: '0.625rem', borderRadius: 8, border: 'none', cursor: 'pointer',
-                          background: maxTransbordos === n ? '#00d992' : 'rgba(255,255,255,0.06)',
-                          color: maxTransbordos === n ? '#000' : '#8b949e',
-                          fontWeight: maxTransbordos === n ? 700 : 400, fontSize: '0.875rem',
+                          background: (maxTransbordos ?? 2) === n ? '#00d992' : 'rgba(255,255,255,0.06)',
+                          color: (maxTransbordos ?? 2) === n ? '#000' : '#8b949e',
+                          fontWeight: (maxTransbordos ?? 2) === n ? 700 : 400, fontSize: '0.875rem',
                           transition: 'all 0.15s',
                         }}
                       >{n}</button>

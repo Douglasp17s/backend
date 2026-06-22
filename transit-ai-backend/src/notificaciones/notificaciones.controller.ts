@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from '@nestjs/common';
 import { NotificacionesService } from './notificaciones.service';
 import { CrearNotificacionDto } from './dto/crear-notificacion.dto';
 import { RegistrarTokenDto } from './dto/registrar-token.dto';
@@ -13,9 +13,21 @@ export class NotificacionesController {
     return await this.notificacionesService.crear(dto);
   }
 
+  @Get('todas')
+  async obtenerTodas() {
+    return await this.notificacionesService.obtenerTodas();
+  }
+
   @Get()
-  async obtenerMisNotificaciones(@CurrentUser() usuario: any) {
-    return await this.notificacionesService.obtenerPorUsuario(usuario.id);
+  async obtenerMisNotificaciones(
+    @CurrentUser() usuario: any,
+    @Query('usuarioDestinoId') usuarioDestinoId?: string,
+  ) {
+    const usuarioId = usuarioDestinoId || usuario?.id;
+    if (!usuarioId) {
+      return null;
+    }
+    return await this.notificacionesService.obtenerPorUsuario(usuarioId);
   }
 
   @Patch(':id/leida')

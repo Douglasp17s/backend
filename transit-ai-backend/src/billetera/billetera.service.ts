@@ -599,4 +599,56 @@ export class BilleteraService {
       txHash: recibo.txHash,
     };
   }
+
+  /**
+   * Obtiene todos los pasajeros (usuarios con rol PASSENGER) con sus saldos actuales.
+   * Calcula el saldo desde las transacciones guardadas en BD.
+   */
+  async obtenerUsuariosConSaldo() {
+    const usuarios = await this.prisma.user.findMany({
+      where: { role: 'PASSENGER', deletedAt: null },
+      include: {
+        wallet: {
+          include: {
+            transactions: true,
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Calcular saldos desde las transacciones
+    const usuariosConSaldo = usuarios.map((u) => {
+      let saldoCentavos = 0;
+
+      if (u.wallet && u.wallet.transactions && u.wallet.transactions.length > 0) {
+        // Sumar todas las transacciones
+        saldoCentavos = u.wallet.transactions.reduce((sum, tx) => {
+          // TOPUP suma, otros restan
+          if (tx.type === 'TOPUP') {
+            return sum + tx.amountCents;
+          } else {
+            return sum - tx.amountCents;
+          }
+        }, 0);
+      }
+
+      const saldoBs = Math.max(0, aBs(saldoCentavos));
+
+      return {
+        id: String(u.id),
+        nombre: u.name,
+        email: u.email,
+        telefono: u.phone,
+        rol: u.role,
+        activo: u.active,
+        creadoEn: u.createdAt.toISOString(),
+        actualizadoEn: u.updatedAt.toISOString(),
+        saldoBs,
+        categoria: u.wallet?.category || 'GENERAL',
+      };
+    });
+
+    return usuariosConSaldo;
+  }
 }

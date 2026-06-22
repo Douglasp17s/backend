@@ -145,17 +145,41 @@ export default function PaginaRutas() {
                         </div>
                       ) : <span style={{ color:'#8b949e', fontSize:'0.8rem' }}>—</span>}
                     </td>
-                    <td style={{ padding:'0.875rem 1rem' }}><span className={`insignia ${r.active?'insignia-exito':'insignia-peligro'}`}>{r.active?'Sí':'No'}</span></td>
+                    <td style={{ padding:'0.875rem 1rem' }}>
+                      <div style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', padding:'0.35rem 0.75rem', borderRadius:6, background:r.active?'rgba(0,217,146,0.15)':'rgba(107,114,128,0.15)' }}>
+                        <div style={{ width:10, height:10, borderRadius:'50%', background:r.active?'#00d992':'#6b7280', flexShrink:0 }}/>
+                        <span style={{ fontSize:'0.8rem', fontWeight:600, color:r.active?'#00d992':'#9ca3af' }}>{r.active?'Activa':'Inactiva'}</span>
+                      </div>
+                    </td>
                     <td style={{ padding:'0.875rem 1rem' }}>
                       <div style={{ display:'flex', gap:'0.375rem' }}>
-                        <button className="boton boton-secundario" style={{ padding:'0.375rem 0.625rem', fontSize:'0.75rem' }} onClick={()=>router.push(`/rutas/${r.id}`)} title="Editar"><Edit2 size={12}/></button>
+                        <button className="boton boton-secundario" style={{ padding:'0.375rem 0.625rem', fontSize:'0.75rem' }} onClick={()=>router.push(`/rutas/${r.id}`)} title="Editar ruta"><Edit2 size={12}/> Editar</button>
                         <button
                           className="boton"
-                          style={{ padding:'0.375rem 0.625rem', fontSize:'0.72rem', background:r.active?'rgba(251,86,91,0.1)':'rgba(0,217,146,0.1)', color:r.active?'#fb565b':'#00d992', border:r.active?'1px solid rgba(251,86,91,0.2)':'1px solid rgba(0,217,146,0.2)', display:'flex', alignItems:'center', gap:'0.25rem' }}
+                          style={{
+                            padding:'0.375rem 0.75rem',
+                            fontSize:'0.75rem',
+                            background:r.active?'rgba(251,86,91,0.12)':'rgba(0,217,146,0.12)',
+                            color:r.active?'#fb565b':'#00d992',
+                            border:r.active?'1px solid rgba(251,86,91,0.3)':'1px solid rgba(0,217,146,0.3)',
+                            display:'flex',
+                            alignItems:'center',
+                            gap:'0.4rem',
+                            cursor:'pointer',
+                            fontWeight:600,
+                            transition:'all 0.2s',
+                          }}
                           onClick={()=>toggleActivo.mutate({ id:r.id, activo:!r.active })}
                           disabled={toggleActivo.isPending}
+                          title={r.active ? 'Desactivar esta ruta' : 'Activar esta ruta'}
                         >
-                          {r.active ? <><ToggleRight size={12}/> Desactivar</> : <><ToggleLeft size={12}/> Activar</>}
+                          {toggleActivo.isPending && toggleActivo.variables?.id === r.id ? (
+                            <>⏳ </>
+                          ) : r.active ? (
+                            <><ToggleRight size={13}/> Desactivar</>
+                          ) : (
+                            <><ToggleLeft size={13}/> Activar</>
+                          )}
                         </button>
                       </div>
                     </td>

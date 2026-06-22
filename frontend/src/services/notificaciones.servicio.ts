@@ -63,7 +63,7 @@ class NotificacionesServicio extends ClienteApi {
    * @returns Array de notificaciones
    */
   async obtenerTodas(filtros?: FiltrosNotificaciones): Promise<Notificacion[]> {
-    return this.obtener<Notificacion[]>('', {
+    return this.obtener<Notificacion[]>('/todas', {
       params: filtros,
     });
   }

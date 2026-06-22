@@ -1,12 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Bus, LogOut } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { Bus, LogOut, Wallet, User, Home } from 'lucide-react';
 import { useUsuarioAlmacen } from '../../almacen/usuario.almacen';
 import { authServicio } from '../../services/auth.servicio';
 
 export default function LayoutChofer({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { usuario, token } = useUsuarioAlmacen();
   const [hidratado, setHidratado] = useState(false);
 
@@ -26,6 +28,11 @@ export default function LayoutChofer({ children }: { children: React.ReactNode }
     router.push('/autenticacion/iniciar-sesion');
   };
 
+  const menuItems = [
+    { href: '/chofer/panel', label: 'Mi Turno', icono: <Home size={14} /> },
+    { href: '/chofer/billetera', label: 'Billetera y Perfil', icono: <User size={14} /> },
+  ];
+
   return (
     <div style={{ minHeight: '100vh', background: '#050507', display: 'flex', flexDirection: 'column' }}>
       <header style={{
@@ -43,6 +50,37 @@ export default function LayoutChofer({ children }: { children: React.ReactNode }
             <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#555', fontWeight: 400 }}>— Conductor</span>
           </span>
         </div>
+
+        {/* Menú de navegación */}
+        <nav style={{ display: 'flex', gap: '0.5rem' }}>
+          {menuItems.map((item) => {
+            const activo = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.4rem 0.75rem',
+                  borderRadius: 6,
+                  fontSize: '0.8rem',
+                  fontWeight: activo ? 600 : 400,
+                  color: activo ? '#00d992' : '#8b949e',
+                  background: activo ? 'rgba(0,217,146,0.1)' : 'transparent',
+                  border: activo ? '1px solid rgba(0,217,146,0.2)' : '1px solid transparent',
+                  textDecoration: 'none',
+                  transition: 'all 0.15s',
+                  cursor: 'pointer',
+                }}
+              >
+                {item.icono}
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {usuario && (

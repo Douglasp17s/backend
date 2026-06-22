@@ -242,6 +242,22 @@ class BilleteraServicio extends ClienteApi {
       params: filtros,
     });
   }
+
+  /**
+   * Obtiene todos los pasajeros con sus saldos actuales
+   * @returns Array de pasajeros con saldo
+   */
+  async obtenerPasajerosConSaldo(): Promise<any[]> {
+    return this.obtener<any[]>('/usuarios-con-saldo');
+  }
+
+  /**
+   * Obtiene el historial de transacciones del usuario autenticado
+   * @returns Array de transacciones
+   */
+  async obtenerMiHistorial(): Promise<Transaccion[]> {
+    return this.obtener<Transaccion[]>('/historial');
+  }
 }
 
 /**

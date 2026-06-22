@@ -58,6 +58,7 @@ export interface Transaccion {
   tarifaBaseBs?: number;
   titular?: string;
   email?: string;
+  lineaId?: string | number;
   txHash: string;
   blockNumber: number | null;
   fecha: string;

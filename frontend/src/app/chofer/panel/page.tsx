@@ -69,10 +69,11 @@ export default function PanelChofer() {
   }, []);
 
   const iniciarViaje = async () => {
-    if (!asignacion) return;
+    if (!asignacion || !asignacion.route) return;
     setIniciandoViaje(true);
     try {
-      const { data } = await api.post('/viajes/iniciar', { asignacionId: asignacion.id });
+      const asignacionIdNum = typeof asignacion.id === 'string' ? parseInt(asignacion.id, 10) : asignacion.id;
+      const { data } = await api.post('/viajes/iniciar', { asignacionId: asignacionIdNum });
       setViajeId(String(data.id));
       setAsignacion((prev) => prev ? { ...prev, trips: [{ id: String(data.id), status: 'IN_PROGRESS' }] } : prev);
     } catch {}
@@ -199,10 +200,20 @@ export default function PanelChofer() {
               </div>
             )}
 
-            {asignacion && !viajeId && (
-              <button onClick={iniciarViaje} disabled={iniciandoViaje} style={{ width: '100%', padding: '0.875rem', borderRadius: 12, border: 'none', cursor: 'pointer', background: iniciandoViaje ? 'rgba(0,217,146,0.15)' : '#00d992', color: iniciandoViaje ? '#00d992' : '#000', fontWeight: 800, fontSize: '0.9375rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: iniciandoViaje ? 'none' : '0 4px 16px rgba(0,217,146,0.25)' }}>
+            {asignacion && !viajeId && asignacion.route && (
+              <button onClick={iniciarViaje} disabled={iniciandoViaje} style={{ width: '100%', padding: '0.875rem', borderRadius: 12, border: 'none', cursor: iniciandoViaje ? 'not-allowed' : 'pointer', background: iniciandoViaje ? 'rgba(0,217,146,0.15)' : '#00d992', color: iniciandoViaje ? '#00d992' : '#000', fontWeight: 800, fontSize: '0.9375rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: iniciandoViaje ? 'none' : '0 4px 16px rgba(0,217,146,0.25)', opacity: iniciandoViaje ? 0.7 : 1 }}>
                 {iniciandoViaje ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Iniciando...</> : <><Navigation size={16} /> Iniciar Viaje</>}
               </button>
+            )}
+
+            {asignacion && !viajeId && !asignacion.route && (
+              <div style={{ background: 'rgba(255,186,0,0.08)', border: '1px solid rgba(255,186,0,0.25)', borderRadius: 12, padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <AlertTriangle size={16} color="#ffba00" style={{ flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#ffba00', margin: '0 0 0.25rem' }}>Esperando asignación de ruta</p>
+                  <p style={{ fontSize: '0.75rem', color: '#8b949e', margin: 0 }}>El administrador debe asignar una ruta para que puedas iniciar el viaje.</p>
+                </div>
+              </div>
             )}
 
             {viajeId && (

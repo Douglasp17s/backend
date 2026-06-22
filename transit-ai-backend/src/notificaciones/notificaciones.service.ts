@@ -63,6 +63,14 @@ export class NotificacionesService {
     return notificacion;
   }
 
+  async obtenerTodas() {
+    return await this.prisma.notification.findMany({
+      include: { receipts: true },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
   async obtenerPorUsuario(usuarioId: string) {
     const notificaciones = await this.prisma.notificationReceipt.findMany({
       where: { userId: BigInt(usuarioId) },
