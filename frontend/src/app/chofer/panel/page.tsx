@@ -60,13 +60,14 @@ export default function PanelChofer() {
 
   useEffect(() => {
     api.get('/asignaciones/mi-asignacion-hoy')
-      .then(({ data }) => {
-        console.log('[ASIGNACION] Respuesta del backend:', data);
-        console.log('[ASIGNACION] Route completa:', data?.route);
-        console.log('[ASIGNACION] RouteRecording:', data?.route?.routeRecording);
-        console.log('[ASIGNACION] RecordedPoints:', data?.route?.routeRecording?.recordedPoints);
-        setAsignacion(data);
-        if (data?.trips?.[0]?.id) setViajeId(String(data.trips[0].id));
+      .then(({ data: respuesta }) => {
+        const asignacion = respuesta.data || respuesta;
+        console.log('[ASIGNACION] Respuesta del backend:', asignacion);
+        console.log('[ASIGNACION] Route completa:', asignacion?.route);
+        console.log('[ASIGNACION] RouteRecording:', asignacion?.route?.routeRecording);
+        console.log('[ASIGNACION] RecordedPoints:', asignacion?.route?.routeRecording?.recordedPoints);
+        setAsignacion(asignacion);
+        if (asignacion?.trips?.[0]?.id) setViajeId(String(asignacion.trips[0].id));
       })
       .catch((err) => {
         console.error('[ASIGNACION] Error:', err);
