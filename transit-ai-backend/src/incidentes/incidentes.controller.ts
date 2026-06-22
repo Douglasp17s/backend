@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { IncidentesService } from './incidentes.service';
 import { IncidentesGateway } from './incidentes.gateway';
 import { CrearIncidenteDto } from './dto/crear-incidente.dto';
 import { RevisarIncidenteDto } from './dto/revisar-incidente.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('incidentes')
@@ -12,6 +13,7 @@ export class IncidentesController {
   constructor(
     private readonly incidentesService: IncidentesService,
     private readonly incidentesGateway: IncidentesGateway,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -38,8 +40,16 @@ export class IncidentesController {
   @Post()
   async crear(@Body() dto: CrearIncidenteDto, @CurrentUser() usuario: any) {
     // Si no viene conductorId, obtenerlo del usuario autenticado
-    if (!dto.conductorId && usuario?.driverId) {
-      dto.conductorId = usuario.driverId;
+    if (!dto.conductorId && usuario?.id) {
+      const driver = await this.prisma.driver.findUnique({
+        where: { userId: BigInt(usuario.id) },
+        select: { id: true },
+      });
+      if (driver) {
+        dto.conductorId = Number(driver.id);
+      } else {
+        throw new BadRequestException('No se encontró conductor asociado al usuario');
+      }
     }
 
     const datos = await this.incidentesService.crear(dto);
