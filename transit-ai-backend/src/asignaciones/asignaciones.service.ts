@@ -80,10 +80,18 @@ export class AsignacionesService {
     const manana = new Date(hoy);
     manana.setDate(manana.getDate() + 1);
 
-    // Intenta buscar asignación por driver.userId directamente
+    // Primero busca el driver por userId
+    const conductor = await this.prisma.driver.findUnique({
+      where: { userId: BigInt(conductorUserId) },
+      select: { id: true },
+    });
+
+    if (!conductor) return null;
+
+    // Busca asignación para este driver
     return this.prisma.dailyAssignment.findFirst({
       where: {
-        driver: { userId: BigInt(conductorUserId) },
+        driverId: conductor.id,
         date: { gte: hoy, lt: manana },
         status: { not: 'CANCELLED' },
       },
