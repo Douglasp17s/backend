@@ -234,7 +234,7 @@ export default function PanelChofer() {
                 {asignacion?.startTime && asignacion?.endTime && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Clock size={14} color="#8b949e" />
-                    <span style={{ fontSize: '0.8125rem', color: '#8b949e' }}>{asignacion.startTime.slice(0, 5)} — {asignacion.endTime.slice(0, 5)}</span>
+                    <span style={{ fontSize: '0.8125rem', color: '#8b949e' }}>{asignacion.startTime.slice(11, 16)} — {asignacion.endTime.slice(11, 16)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
