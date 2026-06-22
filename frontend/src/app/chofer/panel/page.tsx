@@ -93,7 +93,7 @@ export default function PanelChofer() {
     setEnviandoIncidente(true);
     try {
       await api.post('/incidentes', {
-        viajeId, tipo: tipoIncidente,
+        viajeId: parseInt(viajeId, 10), tipo: tipoIncidente,
         descripcion: descripcionIncidente,
         latitud: ultimaPosicion?.lat,
         longitud: ultimaPosicion?.lng,
