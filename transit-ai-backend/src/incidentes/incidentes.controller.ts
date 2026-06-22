@@ -6,7 +6,7 @@ import { RevisarIncidenteDto } from './dto/revisar-incidente.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-// @UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('incidentes')
 export class IncidentesController {
   constructor(
@@ -36,7 +36,12 @@ export class IncidentesController {
   }
 
   @Post()
-  async crear(@Body() dto: CrearIncidenteDto) {
+  async crear(@Body() dto: CrearIncidenteDto, @CurrentUser() usuario: any) {
+    // Si no viene conductorId, obtenerlo del usuario autenticado
+    if (!dto.conductorId && usuario?.driverId) {
+      dto.conductorId = usuario.driverId;
+    }
+
     const datos = await this.incidentesService.crear(dto);
     this.incidentesGateway.emitirNuevoIncidente({
       id: datos.id?.toString(),
