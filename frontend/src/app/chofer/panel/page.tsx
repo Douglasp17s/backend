@@ -61,10 +61,17 @@ export default function PanelChofer() {
   useEffect(() => {
     api.get('/asignaciones/mi-asignacion-hoy')
       .then(({ data }) => {
+        console.log('[ASIGNACION] Respuesta del backend:', data);
+        console.log('[ASIGNACION] Route completa:', data?.route);
+        console.log('[ASIGNACION] RouteRecording:', data?.route?.routeRecording);
+        console.log('[ASIGNACION] RecordedPoints:', data?.route?.routeRecording?.recordedPoints);
         setAsignacion(data);
         if (data?.trips?.[0]?.id) setViajeId(String(data.trips[0].id));
       })
-      .catch(() => setAsignacion(null))
+      .catch((err) => {
+        console.error('[ASIGNACION] Error:', err);
+        setAsignacion(null);
+      })
       .finally(() => setCargando(false));
   }, []);
 
@@ -102,21 +109,42 @@ export default function PanelChofer() {
   const recordedPoints = asignacion?.route?.routeRecording?.recordedPoints as any;
   let puntosRuta: [number, number][] | undefined;
 
+  console.log('[RUTA] recordedPoints:', recordedPoints);
+  console.log('[RUTA] tipo:', typeof recordedPoints, 'esArray:', Array.isArray(recordedPoints));
+
   if (recordedPoints) {
     // Si es un GeoJSON con estructura {type, coordinates}
     if (recordedPoints.coordinates) {
+      console.log('[RUTA] Estructura GeoJSON detectada');
       puntosRuta = recordedPoints.coordinates.map(([lng, lat]: [number, number]) => [lat, lng]);
     }
     // Si es un array directo de coordenadas
     else if (Array.isArray(recordedPoints)) {
+      console.log('[RUTA] Array directo detectado');
       puntosRuta = recordedPoints.map((p: any) =>
         Array.isArray(p) ? [p[1], p[0]] : [p.lat, p.lng]
       );
     }
   }
 
+  console.log('[RUTA] puntosRuta finales:', puntosRuta);
+  console.log('[RUTA] primerPunto:', asignacion?.route?.routeRecording ? puntosRuta?.[0] : 'sin ruta');
+  console.log('[RUTA] ultimoPunto:', asignacion?.route?.routeRecording ? puntosRuta?.[puntosRuta?.length - 1 ?? 0] : 'sin ruta');
+
   const primerPunto = puntosRuta?.[0] ?? null;
   const ultimoPunto = puntosRuta ? puntosRuta[puntosRuta.length - 1] : null;
+
+  console.log('[RENDER] Asignación:', {
+    tieneAsignacion: !!asignacion,
+    tieneRuta: !!asignacion?.route,
+    tieneRouteRecording: !!asignacion?.route?.routeRecording,
+    tienePuntos: !!puntosRuta,
+    cantidadPuntos: puntosRuta?.length,
+    tieneNombreRuta: !!asignacion?.route?.name,
+    primerPunto,
+    ultimoPunto,
+  });
+
   const segmentosRuta = puntosRuta && puntosRuta.length > 1 && primerPunto && ultimoPunto && asignacion?.route?.name ? [{
     tipo: 'bus' as const,
     linea: { id: '', nombre: asignacion.route.name, codigo: '', color: '#00d992', imageUrl: null, tarifa: 0 },
@@ -124,6 +152,8 @@ export default function PanelChofer() {
     descenso: { lat: ultimoPunto[0], lng: ultimoPunto[1] },
     puntosRuta, distanciaKm: 0, tiempoMin: 0,
   }] : undefined;
+
+  console.log('[MAPA] Segmentos de ruta:', segmentosRuta);
 
   if (cargando) {
     return (
