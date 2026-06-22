@@ -16,14 +16,21 @@ import { ClienteApi } from '@/core/servicios/cliente-api';
  */
 export interface Usuario {
   id: string;
-  nombre: string;
+  name: string;
   email: string;
-  telefono?: string;
-  rol: 'PASSENGER' | 'DRIVER' | 'SUPERADMIN' | 'SINDICATO_ADMIN';
-  sindicatoId?: string;
-  activo: boolean;
-  creadoEn: string;
-  actualizadoEn: string;
+  phone?: string;
+  role: 'PASSENGER' | 'DRIVER' | 'SUPERADMIN' | 'SINDICATO_ADMIN';
+  syndicateId?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  avatarUrl?: string;
+  // Relaciones opcionales
+  syndicate?: { id: string; name: string };
+  driver?: { id: string; credentialStatus: string; lineId: string };
+  // Campos opcionales del servicio de billetera
+  saldoBs?: number;
+  categoria?: 'GENERAL' | 'ESTUDIANTE' | 'ADULTO_MAYOR';
 }
 
 /**
