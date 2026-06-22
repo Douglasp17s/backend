@@ -12,15 +12,10 @@ export class AsignacionesController {
 
   @Get('mi-asignacion-hoy')
   async obtenerMiAsignacionHoy(@CurrentUser() usuario: any) {
-    console.log('[CONTROLLER] obtenerMiAsignacionHoy - usuario:', usuario);
     if (!usuario?.id) {
-      console.log('[CONTROLLER] usuario.id es undefined o null');
       return null;
     }
-    console.log('[CONTROLLER] Llamando servicio con usuario.id:', usuario.id);
-    const resultado = await this.asignacionesService.obtenerMiAsignacionHoy(usuario.id);
-    console.log('[CONTROLLER] Resultado del servicio:', resultado);
-    return resultado;
+    return await this.asignacionesService.obtenerMiAsignacionHoy(usuario.id);
   }
 
   @Get()
