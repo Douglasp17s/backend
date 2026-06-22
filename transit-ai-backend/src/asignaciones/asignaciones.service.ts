@@ -75,6 +75,8 @@ export class AsignacionesService {
   }
 
   async obtenerMiAsignacionHoy(conductorUserId: string) {
+    console.log('[BACKEND] obtenerMiAsignacionHoy - conductorUserId:', conductorUserId);
+
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     const manana = new Date(hoy);
@@ -86,10 +88,17 @@ export class AsignacionesService {
       select: { id: true },
     });
 
-    if (!conductor) return null;
+    console.log('[BACKEND] Driver encontrado:', conductor);
+
+    if (!conductor) {
+      console.log('[BACKEND] No se encontró driver para este usuario');
+      return null;
+    }
 
     // Busca asignación para este driver (estados: SCHEDULED o IN_PROGRESS)
-    return this.prisma.dailyAssignment.findFirst({
+    console.log('[BACKEND] Buscando asignación con:', { driverId: conductor.id, fecha_hoy: hoy, fecha_manana: manana });
+
+    const asignacion = await this.prisma.dailyAssignment.findFirst({
       where: {
         driverId: conductor.id,
         date: { gte: hoy, lt: manana },
@@ -120,6 +129,13 @@ export class AsignacionesService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    console.log('[BACKEND] Asignación encontrada:', asignacion);
+    console.log('[BACKEND] Tiene ruta:', !!asignacion?.route);
+    console.log('[BACKEND] Tiene routeRecording:', !!asignacion?.route?.routeRecording);
+    console.log('[BACKEND] RecordedPoints:', asignacion?.route?.routeRecording?.recordedPoints);
+
+    return asignacion;
   }
 
   async eliminar(id: string) {
