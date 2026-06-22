@@ -88,12 +88,12 @@ export class AsignacionesService {
 
     if (!conductor) return null;
 
-    // Busca asignación para este driver
+    // Busca asignación para este driver (estados: SCHEDULED o IN_PROGRESS)
     return this.prisma.dailyAssignment.findFirst({
       where: {
         driverId: conductor.id,
         date: { gte: hoy, lt: manana },
-        status: { not: 'CANCELLED' },
+        status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
       },
       include: {
         driver: { include: { user: { select: { id: true, name: true } } } },
