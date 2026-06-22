@@ -75,20 +75,15 @@ export class AsignacionesService {
   }
 
   async obtenerMiAsignacionHoy(conductorUserId: string) {
-    // Busca el driver record del usuario
-    const conductor = await this.prisma.driver.findUnique({
-      where: { userId: BigInt(conductorUserId) },
-    });
-    if (!conductor) return null;
-
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     const manana = new Date(hoy);
     manana.setDate(manana.getDate() + 1);
 
+    // Intenta buscar asignación por driver.userId directamente
     return this.prisma.dailyAssignment.findFirst({
       where: {
-        driverId: conductor.id,
+        driver: { userId: BigInt(conductorUserId) },
         date: { gte: hoy, lt: manana },
         status: { not: 'CANCELLED' },
       },
@@ -98,7 +93,13 @@ export class AsignacionesService {
         route: {
           select: {
             id: true, name: true, direction: true,
-            routeRecording: { select: { recordedPoints: true } },
+            routeRecording: {
+              select: {
+                id: true,
+                recordedPoints: true,
+                status: true
+              }
+            },
           },
         },
         shift: { select: { id: true, name: true } },
@@ -109,6 +110,7 @@ export class AsignacionesService {
           take: 1,
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
