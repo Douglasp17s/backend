@@ -96,7 +96,18 @@ export class AsignacionesService {
     }
 
     // Busca asignación para este driver (estados: SCHEDULED o IN_PROGRESS)
-    console.log('[BACKEND] Buscando asignación con:', { driverId: conductor.id, fecha_hoy: hoy, fecha_manana: manana });
+    console.log('[BACKEND] Buscando asignación con:', {
+      driverId: conductor.id,
+      fecha_hoy: hoy.toISOString(),
+      fecha_manana: manana.toISOString()
+    });
+
+    // Primero obtén todas las asignaciones de este conductor hoy (sin filtro de estado) para debugging
+    const allAssignments = await this.prisma.dailyAssignment.findMany({
+      where: { driverId: conductor.id, date: { gte: hoy, lt: manana } },
+      select: { id: true, status: true, routeId: true, route: { select: { id: true, name: true } } },
+    });
+    console.log('[BACKEND] Todas las asignaciones del conductor hoy:', allAssignments);
 
     const asignacion = await this.prisma.dailyAssignment.findFirst({
       where: {
@@ -131,9 +142,17 @@ export class AsignacionesService {
     });
 
     console.log('[BACKEND] Asignación encontrada:', asignacion);
-    console.log('[BACKEND] Tiene ruta:', !!asignacion?.route);
-    console.log('[BACKEND] Tiene routeRecording:', !!asignacion?.route?.routeRecording);
-    console.log('[BACKEND] RecordedPoints:', asignacion?.route?.routeRecording?.recordedPoints);
+
+    if (asignacion) {
+      console.log('[BACKEND] ID:', asignacion.id);
+      console.log('[BACKEND] routeId:', asignacion.routeId);
+      console.log('[BACKEND] Ruta:', asignacion.route);
+      console.log('[BACKEND] Tiene ruta:', !!asignacion.route);
+      console.log('[BACKEND] Tiene routeRecording:', !!asignacion.route?.routeRecording);
+      console.log('[BACKEND] RecordedPoints:', asignacion.route?.routeRecording?.recordedPoints);
+    } else {
+      console.log('[BACKEND] Ninguna asignación encontrada para hoy');
+    }
 
     return asignacion;
   }
