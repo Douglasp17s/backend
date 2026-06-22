@@ -5,7 +5,7 @@ import { ActualizarAsignacionDto } from './dto/actualizar-asignacion.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-// @UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('asignaciones')
 export class AsignacionesController {
   constructor(private readonly asignacionesService: AsignacionesService) {}
