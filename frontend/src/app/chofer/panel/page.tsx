@@ -98,8 +98,23 @@ export default function PanelChofer() {
     setEnviandoIncidente(false);
   };
 
-  const puntosRuta: [number, number][] | undefined =
-    asignacion?.route?.routeRecording?.recordedPoints?.coordinates?.map(([lng, lat]) => [lat, lng]);
+  // Extraer puntos de la ruta grabada
+  const recordedPoints = asignacion?.route?.routeRecording?.recordedPoints as any;
+  let puntosRuta: [number, number][] | undefined;
+
+  if (recordedPoints) {
+    // Si es un GeoJSON con estructura {type, coordinates}
+    if (recordedPoints.coordinates) {
+      puntosRuta = recordedPoints.coordinates.map(([lng, lat]: [number, number]) => [lat, lng]);
+    }
+    // Si es un array directo de coordenadas
+    else if (Array.isArray(recordedPoints)) {
+      puntosRuta = recordedPoints.map((p: any) =>
+        Array.isArray(p) ? [p[1], p[0]] : [p.lat, p.lng]
+      );
+    }
+  }
+
   const primerPunto = puntosRuta?.[0] ?? null;
   const ultimoPunto = puntosRuta ? puntosRuta[puntosRuta.length - 1] : null;
   const segmentosRuta = puntosRuta && puntosRuta.length > 1 && primerPunto && ultimoPunto && asignacion?.route?.name ? [{
